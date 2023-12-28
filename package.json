@@ -1,0 +1,27 @@
+{
+  "name": "gpt-telegram-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "cross-env NODE_ENV=production node ./src/main.js",
+    "dev": "cross-env NODE_ENV=development nodemon ./src/main.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.0.2"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "axios": "^1.6.3",
+    "config": "^3.3.9",
+    "fluent-ffmpeg": "^2.1.2",
+    "openai": "^4.24.1",
+    "telegraf": "^4.15.3"
+  }
+}
