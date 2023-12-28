@@ -17,7 +17,7 @@ class OpenAIWrapper {
     try {
       const response = await this.openai.chat.completions.create({
         messages: messages,
-        model: "gpt-3.5-turbo",
+        model: "gpt-3.5-turbo-1106",
       });
 
       return response.choices && response.choices[0].message.content
