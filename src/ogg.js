@@ -11,20 +11,17 @@ class OggConverter {
     ffmpeg.setFfmpegPath(installer.path)
   }
   toMp3(input, output) {
-    try {
-      const outputPath = resolve(dirname(input), `${output}.mp3`)
-      return new Promise((resolve, reject) => {
-        ffmpeg(input)
-          .inputOption('-t 30')
-          .output(outputPath)
-          .on('end', () => resolve(outputPath))
-          .on('error', (err) => reject(err.message))
-          .run()
-      })
-    } catch (e) {
-      console.log('Error while creating mp3', e.message)
-    }
+    const outputPath = resolve(dirname(input), `${output}.mp3`)
+    return new Promise((resolve, reject) => {
+      ffmpeg(input)
+        .inputOption('-t 30')
+        .output(outputPath)
+        .on('end', () => resolve(outputPath))
+        .on('error', (err) => reject(err.message))
+        .run()
+    })
   }
+  
   async create(url, filename) {
     try {
       const oggPath = resolve(__dirname, '../voices', `${filename}.ogg`)
@@ -33,10 +30,11 @@ class OggConverter {
         url,
         responseType: 'stream',
       })
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const stream = createWriteStream(oggPath)
         response.data.pipe(stream)
         stream.on('finish', () => resolve(oggPath))
+        stream.on('error', (err) => reject(err.message))
       })
     } catch (e) {
       console.log('Error while creating ogg', e.message)
