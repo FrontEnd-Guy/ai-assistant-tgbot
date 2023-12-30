@@ -27,7 +27,7 @@ bot.use((ctx, next) => {
 });
 
 bot.command('start', initCommand)
-
+bot.command('new', initCommand)
 
 bot.on(message('voice'), async (ctx) => {
   ctx.session ??= INITIAL_SESSION
@@ -79,7 +79,7 @@ bot.on(message('photo'), async (ctx) => {
     mediaGroups[mediaGroupId].timer = setTimeout(async () => {
       ctx.session ??= INITIAL_SESSION;
       const group = mediaGroups[mediaGroupId];
-      const caption = group.caption || "Что изображено на фото?"
+      const caption = group.caption || "Пожалуйста, дайте свою реакцию на это фото, как если бы вы были человеком."
 
       ctx.session.messages.push({
         role: openai.roles.USER,
@@ -131,7 +131,7 @@ bot.on(message('document'), async (ctx) => {
 
     ctx.session ??= INITIAL_SESSION;
 
-    await processTextToChat(ctx, `${ctx.message.caption ? ctx.message.caption + '\n\n' : 'Какие выводы можно сделать из следующей информации?\n\n'}${parsedText}`);
+    await processTextToChat(ctx, `${ctx.message.caption ? ctx.message.caption + '\n\n' : 'Пожалуйста, предоставьте краткий обзор содержимого этого документа с акцентом на наиболее важные аспекты. В конце добавьте приглашение задать дополнительные вопросы.\n\n'}${parsedText}`);
 
   } catch (error) {
     console.error('Ошибка при обработке файла:', error);
