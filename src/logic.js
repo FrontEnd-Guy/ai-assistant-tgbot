@@ -1,5 +1,6 @@
 import { openai } from './openai.js'
-const MAX_CONTEXT_MESSAGES = 10;
+
+export const MAX_CONTEXT_MESSAGES = 25;
 export const INITIAL_SESSION = {
   messages: [],
 }

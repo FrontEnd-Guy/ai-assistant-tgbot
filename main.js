@@ -1,8 +1,12 @@
 import { Telegraf, session } from 'telegraf'
-import { initCommand, processTextToChat, INITIAL_SESSION } from './src/logic.js'
 import { message } from 'telegraf/filters'
+import axios from 'axios'
+
 import config from 'config'
+
+import { initCommand, processTextToChat, INITIAL_SESSION, MAX_CONTEXT_MESSAGES } from './src/logic.js'
 import { ogg } from './src/ogg.js'
+import { parsePdf, parseDocx, parseExcel } from './src/fileParser.js';
 import { openai } from './src/openai.js'
 import { removeFile } from './src/utils.js'
 
@@ -23,6 +27,7 @@ bot.use((ctx, next) => {
 });
 
 bot.command('start', initCommand)
+
 
 bot.on(message('voice'), async (ctx) => {
   ctx.session ??= INITIAL_SESSION
@@ -52,30 +57,86 @@ bot.on(message('text'), async (ctx) => {
 })
 
 bot.on(message('photo'), async (ctx) => {
-  const mediaGroupId = ctx.message.media_group_id || 'single';
-  const photo = ctx.message.photo.pop();
-  const link = await ctx.telegram.getFileLink(photo.file_id);
+  try {
+    const mediaGroupId = ctx.message.media_group_id || 'single';
+    const photo = ctx.message.photo.pop();
+    const link = await ctx.telegram.getFileLink(photo.file_id);
 
-  if (!mediaGroups[mediaGroupId]) {
-    mediaGroups[mediaGroupId] = {
-      links: [],
-      caption: ctx.message.caption,
-      timer: null,
-    };
+    if (!mediaGroups[mediaGroupId]) {
+      mediaGroups[mediaGroupId] = {
+        links: [],
+        caption: ctx.message.caption,
+        timer: null,
+      };
+    }
+
+    mediaGroups[mediaGroupId].links.push(link);
+
+    // Очищаем предыдущий таймер, если он был установлен
+    clearTimeout(mediaGroups[mediaGroupId].timer);
+
+    // Устанавливаем таймер для отправки запроса
+    mediaGroups[mediaGroupId].timer = setTimeout(async () => {
+      ctx.session ??= INITIAL_SESSION;
+      const group = mediaGroups[mediaGroupId];
+      const caption = group.caption || "Что изображено на фото?"
+
+      ctx.session.messages.push({
+        role: openai.roles.USER,
+        content: caption
+      });
+      if (ctx.session.messages.length > MAX_CONTEXT_MESSAGES) {
+        ctx.session.messages.shift();
+      }
+
+      const response = await openai.analyzeImages(group.links, caption);
+      
+      ctx.session.messages.push({
+        role: openai.roles.ASSISTANT,
+        content: response,
+      })
+      await ctx.reply(response)
+
+      delete mediaGroups[mediaGroupId];
+    }, 1000); // Задержка в 1000 мс (1 секунда)
+  } catch (e) {
+    console.log(`Error while processing photo message`, e.message);
+    ctx.reply("Произошла ошибка при обработке фотографии.");
   }
+});
 
-  mediaGroups[mediaGroupId].links.push(link);
+bot.on(message('document'), async (ctx) => {
+  try {
+    const fileId = ctx.message.document.file_id;
+    const link = await ctx.telegram.getFileLink(fileId);
+    const response = await axios.get(link.href, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data, 'binary');
 
-  // Очищаем предыдущий таймер, если он был установлен
-  clearTimeout(mediaGroups[mediaGroupId].timer);
+    let parsedText;
 
-  // Устанавливаем таймер для отправки запроса
-  mediaGroups[mediaGroupId].timer = setTimeout(async () => {
-    const group = mediaGroups[mediaGroupId];
-    const response = await openai.analyzeImages(group.links, group.caption || "Что изображено на этих фото?");
-    await ctx.reply(response);
-    delete mediaGroups[mediaGroupId];
-  }, 1000); // Задержка в 1000 мс (1 секунда)
+    switch (ctx.message.document.mime_type) {
+      case 'application/pdf':
+        parsedText = await parsePdf(buffer);
+        break;
+      case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        parsedText = await parseDocx(buffer);
+        break;
+      case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+        parsedText = await parseExcel(buffer);
+        break;
+      default:
+        ctx.reply("Извините, я могу обрабатывать только PDF, DOCX и Excel файлы.");
+        return;
+    }
+
+    ctx.session ??= INITIAL_SESSION;
+
+    await processTextToChat(ctx, `${ctx.message.caption ? ctx.message.caption + '\n\n' : 'Какие выводы можно сделать из следующей информации?\n\n'}${parsedText}`);
+
+  } catch (error) {
+    console.error('Ошибка при обработке файла:', error);
+    ctx.reply("Произошла ошибка при обработке файла.");
+  }
 });
 
 bot.launch();
